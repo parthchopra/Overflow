@@ -1,5 +1,7 @@
 using Microsoft.IdentityModel.Tokens;
 using Common;
+using QuestionService.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +13,8 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.AddServiceDefaults();
 builder.Services.AddKeyCloakAuthentication();
+
+builder.AddNpgsqlDbContext<QuestionDbContext>("questionDb");
 
 var app = builder.Build();
 
@@ -27,4 +31,18 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapDefaultEndpoints();
+
+using var scope = app.Services.CreateScope();
+try
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<QuestionDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+catch (Exception ex)
+{
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "An error occurred while migrating or initializing the database.");
+    throw;
+}
+
 app.Run();
